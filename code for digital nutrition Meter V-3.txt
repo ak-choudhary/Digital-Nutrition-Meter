@@ -1,0 +1,247 @@
+import { useState, useEffect } from "react";
+
+// USDA API key
+const API_KEY = "dw7XUpL9dUYWzlK4O7jDfFyrNPoyyGIWgeF2KTrq";
+const API_URL = "https://api.nal.usda.gov/fdc/v1/foods/search";
+
+function App() {
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [servingSize, setServingSize] = useState(100); // Default serving size in grams
+
+  // Fetch suggestions as user types (only raw fruits/vegetables)
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (query.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+      try {
+        const res = await fetch(
+          `${API_URL}?api_key=${API_KEY}&query=${encodeURIComponent(query)}&pageSize=10&dataType=Foundation`
+        );
+        const data = await res.json();
+        if (data.foods) {
+          // Filter only raw fruits and vegetables
+          const rawFoods = data.foods.filter(
+            (food) =>
+              food.description.toLowerCase().includes("raw") ||
+              (food.foodCategory && food.foodCategory.toLowerCase().includes("fruit")) ||
+              (food.foodCategory && food.foodCategory.toLowerCase().includes("vegetable"))
+          );
+          setSuggestions(rawFoods.map((food) => food.description));
+        }
+      } catch (err) {
+        console.error("Suggestion fetch failed", err);
+      }
+    };
+    fetchSuggestions();
+  }, [query]);
+
+  const handleSearch = async (searchQuery) => {
+    const finalQuery = searchQuery || query;
+    if (!finalQuery) return;
+    setLoading(true);
+    setError("");
+    setResult(null);
+
+    try {
+      const res = await fetch(
+        `${API_URL}?api_key=${API_KEY}&query=${encodeURIComponent(finalQuery)}&pageSize=1&dataType=Foundation`
+      );
+      const data = await res.json();
+
+      if (data.foods && data.foods.length > 0) {
+        const food = data.foods[0];
+        const baseWeight = food.servingSize || 100;
+
+        // Extract nutrients of interest
+        const nutrients = {};
+        food.foodNutrients.forEach((n) => {
+          if (n.nutrientName.includes("Energy")) nutrients.calories = n.value;
+          if (n.nutrientName.includes("Carbohydrate")) nutrients.carbs = n.value;
+          if (n.nutrientName.includes("Protein")) nutrients.protein = n.value;
+          if (n.nutrientName.includes("Total lipid")) nutrients.fat = n.value;
+          if (n.nutrientName.includes("Vitamin C")) nutrients.vitaminC = n.value;
+          if (n.nutrientName.includes("Fiber")) nutrients.fiber = n.value;
+          if (n.nutrientName.includes("Sugars")) nutrients.sugar = n.value;
+          if (n.nutrientName.includes("Calcium")) nutrients.calcium = n.value;
+          if (n.nutrientName.includes("Iron")) nutrients.iron = n.value;
+          if (n.nutrientName.includes("Potassium")) nutrients.potassium = n.value;
+          if (n.nutrientName.includes("Magnesium")) nutrients.magnesium = n.value;
+          if (n.nutrientName.includes("Vitamin A")) nutrients.vitaminA = n.value;
+          if (n.nutrientName.includes("Vitamin B-6")) nutrients.vitaminB6 = n.value;
+          if (n.nutrientName.includes("Vitamin E")) nutrients.vitaminE = n.value;
+        });
+
+        setResult({
+          name: food.description,
+          baseWeight,
+          nutrients,
+        });
+        setServingSize(baseWeight); // Initialize serving size with USDA data or 100g
+        setSuggestions([]); // Clear dropdown after showing results
+        setQuery(""); // Clear the search bar after displaying results
+      } else {
+        setError("No data found.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Failed to fetch data.");
+    }
+
+    setLoading(false);
+  };
+
+  const scaleNutrient = (value) => {
+    if (!result) return null;
+    return ((value * servingSize) / result.baseWeight).toFixed(2);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-start p-6">
+      <h1 className="text-4xl font-extrabold mb-6 text-gray-800 tracking-tight">
+        🍎 Nutrition Lookup (USDA)
+      </h1>
+
+      {/* Search box with autocomplete */}
+      <div className="flex flex-col gap-2 mb-6 relative w-72 sticky top-4 bg-gray-100 z-20">
+        <input
+          type="text"
+          placeholder="Search raw fruit or vegetable..."
+          className="px-4 py-2 rounded-xl shadow border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {suggestions.length > 0 && !result && (
+          <ul className="absolute top-12 bg-white shadow-lg rounded-xl w-full max-h-48 overflow-y-auto z-10 border border-gray-200">
+            {suggestions.map((item, index) => (
+              <li
+                key={index}
+                onClick={() => {
+                  setQuery(item);
+                  handleSearch(item);
+                }}
+                className="px-4 py-2 cursor-pointer hover:bg-green-100 text-sm"
+              >
+                {item}
+              </li>
+            ))}
+          </ul>
+        )}
+        <button
+          onClick={() => handleSearch()}
+          className="bg-green-500 text-white px-4 py-2 rounded-xl shadow hover:bg-green-600 transition"
+        >
+          {loading ? "Searching..." : "Search"}
+        </button>
+      </div>
+
+      {/* Nutrition Label Style */}
+      {result && (
+        <div className="bg-white shadow-2xl rounded-lg p-6 w-80 border-2 border-black mt-6">
+          <h2 className="text-2xl font-extrabold border-b-4 border-black pb-2 mb-4 uppercase">
+            Nutrition Facts
+          </h2>
+
+          <p className="font-bold text-lg mb-2">{result.name}</p>
+
+          {/* Serving size input */}
+          <div className="mb-4">
+            <label className="block text-sm font-semibold mb-1">Serving Size (grams):</label>
+            <input
+              type="number"
+              className="w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+              value={servingSize}
+              onChange={(e) => setServingSize(Number(e.target.value))}
+            />
+          </div>
+
+          <p className="text-sm text-gray-600 mb-2">Nutrients based on {servingSize} g</p>
+
+          <div className="border-t border-black my-2"></div>
+
+          <ul className="space-y-2 text-gray-800 text-sm">
+            {result.nutrients.calories && (
+              <li className="flex justify-between font-bold text-lg">
+                <span>Calories</span> <span>{scaleNutrient(result.nutrients.calories)} kcal</span>
+              </li>
+            )}
+            {result.nutrients.carbs && (
+              <li className="flex justify-between">
+                <span>Total Carbohydrates</span> <span>{scaleNutrient(result.nutrients.carbs)} g</span>
+              </li>
+            )}
+            {result.nutrients.fiber && (
+              <li className="flex justify-between">
+                <span>Dietary Fiber</span> <span>{scaleNutrient(result.nutrients.fiber)} g</span>
+              </li>
+            )}
+            {result.nutrients.sugar && (
+              <li className="flex justify-between">
+                <span>Sugars</span> <span>{scaleNutrient(result.nutrients.sugar)} g</span>
+              </li>
+            )}
+            {result.nutrients.protein && (
+              <li className="flex justify-between">
+                <span>Protein</span> <span>{scaleNutrient(result.nutrients.protein)} g</span>
+              </li>
+            )}
+            {result.nutrients.fat && (
+              <li className="flex justify-between">
+                <span>Total Fat</span> <span>{scaleNutrient(result.nutrients.fat)} g</span>
+              </li>
+            )}
+            {result.nutrients.vitaminC && (
+              <li className="flex justify-between">
+                <span>Vitamin C</span> <span>{scaleNutrient(result.nutrients.vitaminC)} mg</span>
+              </li>
+            )}
+            {result.nutrients.vitaminA && (
+              <li className="flex justify-between">
+                <span>Vitamin A</span> <span>{scaleNutrient(result.nutrients.vitaminA)} µg</span>
+              </li>
+            )}
+            {result.nutrients.vitaminB6 && (
+              <li className="flex justify-between">
+                <span>Vitamin B6</span> <span>{scaleNutrient(result.nutrients.vitaminB6)} mg</span>
+              </li>
+            )}
+            {result.nutrients.vitaminE && (
+              <li className="flex justify-between">
+                <span>Vitamin E</span> <span>{scaleNutrient(result.nutrients.vitaminE)} mg</span>
+              </li>
+            )}
+            {result.nutrients.calcium && (
+              <li className="flex justify-between">
+                <span>Calcium</span> <span>{scaleNutrient(result.nutrients.calcium)} mg</span>
+              </li>
+            )}
+            {result.nutrients.iron && (
+              <li className="flex justify-between">
+                <span>Iron</span> <span>{scaleNutrient(result.nutrients.iron)} mg</span>
+              </li>
+            )}
+            {result.nutrients.potassium && (
+              <li className="flex justify-between">
+                <span>Potassium</span> <span>{scaleNutrient(result.nutrients.potassium)} mg</span>
+              </li>
+            )}
+            {result.nutrients.magnesium && (
+              <li className="flex justify-between">
+                <span>Magnesium</span> <span>{scaleNutrient(result.nutrients.magnesium)} mg</span>
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+
+      {error && <p className="mt-4 text-red-500 font-semibold">{error}</p>}
+    </div>
+  );
+}
+
+export default App;
