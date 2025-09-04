@@ -6,4 +6,4 @@ Powered by the **USDA FoodData Central API**.
 - Adjustable **serving size (grams)** with automatic recalculation  
 - Extra nutrients (Calories, Carbs, Fiber, Sugar, Protein, Fat, Vitamin C, Calcium, Iron, Potassium, Vitamin A, Vitamin B6, Vitamin E, Magnesium)  
 - Modern, responsive UI built with **React + TailwindCSS**  
-- Attribution footer: “Nutrition data provided by USDA FoodData Central | Developed by Ahmed Khurshid with ChatGPT”
+- Attribution footer: “Nutrition data provided by USDA FoodData Central | Developed by Ahmed Khurshid”
