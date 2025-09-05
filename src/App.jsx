@@ -111,7 +111,7 @@ function App() {
       <div className="flex flex-col gap-2 mb-6 relative w-72 sticky top-4 bg-gray-100 z-20">
         <input
           type="text"
-          placeholder="Search raw fruit or vegetable..."
+          placeholder="Search any type of food, vegitable and fruits..."
           className="px-4 py-2 rounded-xl shadow border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
